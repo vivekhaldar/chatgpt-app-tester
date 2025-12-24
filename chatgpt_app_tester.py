@@ -559,6 +559,37 @@ CHAT_UI_HTML = """
       margin: 4px;
       font-family: monospace;
     }
+
+    .debug-details {
+      margin: 8px 0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .debug-details summary {
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      cursor: pointer;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      user-select: none;
+    }
+
+    .debug-details summary:hover {
+      background: var(--border);
+    }
+
+    .debug-details pre {
+      margin: 0;
+      padding: 12px;
+      background: var(--bg);
+      overflow-x: auto;
+      font-size: 0.75rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
@@ -673,7 +704,18 @@ CHAT_UI_HTML = """
 
           // Add widget if present
           if (data.widget) {
-            content += renderWidget(data.widget);
+            // Build tool debug info
+            const toolInfo = {
+              request: data.tool_calls && data.tool_calls.length > 0 ? {
+                name: data.tool_calls[0].name,
+                arguments: data.tool_calls[0].arguments
+              } : null,
+              response: {
+                structuredContent: data.widget.structuredContent,
+                _meta: data.widget._meta
+              }
+            };
+            content += renderWidget(data.widget, toolInfo);
           }
 
           addMessageHtml('assistant', content);
@@ -700,7 +742,7 @@ CHAT_UI_HTML = """
       container.scrollTop = container.scrollHeight;
     }
 
-    function renderWidget(widget) {
+    function renderWidget(widget, toolInfo) {
       const widgetId = `widget-${++widgetCounter}`;
 
       // Build window.openai mock
@@ -711,7 +753,7 @@ CHAT_UI_HTML = """
         widgetState: widgetStates[widgetId] || null,
       };
 
-      // Create injection script
+      // Create injection script with height reporting
       const injectionScript = `
         <script>
           window.openai = ${JSON.stringify(mockOpenAI)};
@@ -737,6 +779,15 @@ CHAT_UI_HTML = """
           };
           window.dispatchEvent(new Event('openai:set-globals'));
 
+          // Report height to parent for auto-sizing
+          function reportHeight() {
+            const height = document.body.scrollHeight;
+            window.parent.postMessage({ type: 'widget-height', widgetId: '${widgetId}', height: height }, '*');
+          }
+          window.addEventListener('load', reportHeight);
+          new MutationObserver(reportHeight).observe(document.body, { childList: true, subtree: true });
+          setTimeout(reportHeight, 100);
+
           // Listen for theme changes from parent
           window.addEventListener('message', function(e) {
             if (e.data && e.data.type === 'theme-change') {
@@ -754,8 +805,17 @@ CHAT_UI_HTML = """
       // Escape for srcdoc
       const srcdoc = html.replace(/"/g, '&quot;');
 
+      // Build debug panel
+      const debugHtml = toolInfo ? `
+        <details class="debug-details">
+          <summary>🔧 Tool Debug Info</summary>
+          <pre>${escapeHtml(JSON.stringify(toolInfo, null, 2))}</pre>
+        </details>
+      ` : '';
+
       return `
-        <div class="widget-container">
+        ${debugHtml}
+        <div class="widget-container" data-widget-id="${widgetId}">
           <iframe srcdoc="${srcdoc}" sandbox="allow-scripts allow-same-origin"></iframe>
         </div>
       `;
@@ -775,6 +835,15 @@ CHAT_UI_HTML = """
       } else if (e.data && e.data.type === 'follow-up') {
         document.getElementById('chat-input').value = e.data.prompt;
         sendMessage();
+      } else if (e.data && e.data.type === 'widget-height') {
+        // Auto-resize iframe to fit content
+        const container = document.querySelector(`[data-widget-id="${e.data.widgetId}"]`);
+        if (container) {
+          const iframe = container.querySelector('iframe');
+          if (iframe) {
+            iframe.style.height = (e.data.height + 20) + 'px';
+          }
+        }
       }
     });
 
