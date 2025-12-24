@@ -5,7 +5,7 @@ Lightweight local tester for ChatGPT apps with MCP servers. Iterate on your Chat
 ## Features
 
 - **Chat UI** with message history
-- **OpenAI-powered tool selection** using GPT-4o-mini
+- **OpenAI-powered tool selection** (configurable model, default: gpt-4o-mini)
 - **Widget rendering** with `window.openai` API mock
 - **Light/dark theme toggle**
 - **Single-file implementation** (~600 lines)
@@ -42,6 +42,9 @@ open http://localhost:3000
 # Specify a custom port
 uv run python chatgpt_app_tester.py --port 3001 http://localhost:8000/mcp
 
+# Use a different OpenAI model
+uv run python chatgpt_app_tester.py --model gpt-4o http://localhost:8000/mcp
+
 # Use a config file
 uv run python chatgpt_app_tester.py --config servers.json
 ```
@@ -53,7 +56,8 @@ uv run python chatgpt_app_tester.py --config servers.json
   "servers": [
     {"name": "My App", "url": "http://localhost:8000/mcp"}
   ],
-  "port": 3000
+  "port": 3000,
+  "model": "gpt-4o-mini"
 }
 ```
 

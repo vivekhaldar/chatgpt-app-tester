@@ -137,8 +137,9 @@ async def chat_with_tools(
     openai_tools = mcp_tools_to_openai_format(mcp_tools)
 
     # First call to OpenAI
+    model = app_state.get("model", "gpt-4o-mini")
     response = await openai_client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=model,
         messages=messages,
         tools=openai_tools if openai_tools else None,
     )
@@ -219,7 +220,7 @@ async def chat_with_tools(
 
         # Get final response from OpenAI
         final_response = await openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=messages,
         )
         result["content"] = final_response.choices[0].message.content
@@ -240,6 +241,7 @@ app_state: dict[str, Any] = {
     "messages": [],
     "widget_states": {},
     "theme": "light",
+    "model": "gpt-4o-mini",
 }
 
 
@@ -886,11 +888,13 @@ def main():
     parser.add_argument("url", nargs="?", help="MCP server URL (e.g., http://localhost:8000/mcp)")
     parser.add_argument("--config", "-c", help="Path to config JSON file")
     parser.add_argument("--port", "-p", type=int, default=3000, help="Port to run on (default: 3000)")
+    parser.add_argument("--model", "-m", default="gpt-4o-mini", help="OpenAI model to use (default: gpt-4o-mini)")
     args = parser.parse_args()
 
-    # Determine MCP URL
+    # Determine MCP URL and settings
     mcp_url = None
     port = args.port
+    model = args.model
 
     if args.config:
         config = load_config(args.config)
@@ -898,12 +902,16 @@ def main():
         if servers:
             mcp_url = servers[0].get("url")
         port = config.get("port", port)
+        model = config.get("model", model)
     elif args.url:
         mcp_url = args.url
     else:
         parser.print_help()
         print("\nError: Please provide an MCP server URL or config file")
         return
+
+    # Set model in app state
+    app_state["model"] = model
 
     # Check for OpenAI API key
     if not os.environ.get("OPENAI_API_KEY"):
@@ -913,6 +921,7 @@ def main():
 
     print(f"ChatGPT App Tester")
     print(f"  MCP Server: {mcp_url}")
+    print(f"  Model: {model}")
     print(f"  Web UI: http://localhost:{port}")
     print()
 
