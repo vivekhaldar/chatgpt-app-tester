@@ -1,0 +1,14 @@
+[project]
+name = "chatgpt-app-tester"
+version = "0.1.0"
+description = "Lightweight local tester for ChatGPT apps with MCP servers"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.24.0",
+    "starlette>=0.30.0",
+    "uvicorn>=0.20.0",
+    "openai>=1.0.0",
+]
+
+[project.scripts]
+chatgpt-app-tester = "chatgpt_app_tester:main"
